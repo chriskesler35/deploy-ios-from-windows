@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iOS App Store Upload Wizard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #f5f5f7;
+    --surface:   #ffffff;
+    --border:    #e0e0e0;
+    --text:      #1a1a1a;
+    --muted:     #6b7280;
+    --accent:    #0071e3;
+    --accent-bg: #e8f1fd;
+    --green:     #1a7f37;
+    --green-bg:  #d1f0d9;
+    --amber:     #92400e;
+    --amber-bg:  #fef3c7;
+    --red:       #b91c1c;
+    --red-bg:    #fee2e2;
+    --mono:      'SF Mono', 'Consolas', monospace;
+    --radius:    10px;
+    --shadow:    0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+  }
+
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; }
+
+  /* ── Layout ── */
+  .app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border);
+             padding: 24px 0; position: sticky; top: 0; height: 100vh;
+             overflow-y: auto; display: flex; flex-direction: column; }
+  .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo h1 { font-size: 15px; font-weight: 600; color: var(--text); }
+  .sidebar-logo p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .app-list { padding: 12px 0; flex: 1; }
+  .app-list-header { padding: 8px 20px; font-size: 11px; font-weight: 600;
+                     color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .app-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px;
+              cursor: pointer; transition: background .15s; }
+  .app-item:hover { background: var(--bg); }
+  .app-item.active { background: var(--accent-bg); }
+  .app-item-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
+                   display: flex; align-items: center; justify-content: center;
+                   color: #fff; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+  .app-item-name { font-size: 13px; font-weight: 500; }
+  .app-item-sub  { font-size: 11px; color: var(--muted); }
+  .app-item-badge { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  .new-app-btn { margin: 8px 16px 0; padding: 8px 14px; border: 1.5px dashed var(--border);
+                 border-radius: var(--radius); background: none; cursor: pointer;
+                 font-size: 13px; color: var(--muted); width: calc(100% - 32px); text-align: center;
+                 transition: border-color .15s, color .15s; }
+  .new-app-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Main ── */
+  .main { padding: 32px 40px; max-width: 820px; }
+
+  .welcome { text-align: center; margin: 80px auto; max-width: 480px; }
+  .welcome h2 { font-size: 24px; font-weight: 600; margin-bottom: 10px; }
+  .welcome p  { color: var(--muted); margin-bottom: 24px; }
+
+  /* ── App header ── */
+  .app-header { margin-bottom: 28px; }
+  .app-header h2 { font-size: 22px; font-weight: 600; }
+  .app-header p  { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  .progress-bar-wrap { margin-top: 14px; }
+  .progress-bar-track { background: var(--border); border-radius: 99px; height: 6px; overflow: hidden; }
+  .progress-bar-fill  { background: var(--accent); height: 100%; border-radius: 99px;
+                        transition: width .4s ease; }
+  .progress-label { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+  /* ── Phase cards ── */
+  .phase { background: var(--surface); border: 1px solid var(--border);
+           border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; box-shadow: var(--shadow); }
+  .phase-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+                  cursor: pointer; user-select: none; }
+  .phase-header:hover { background: #fafafa; }
+  .phase-num  { width: 28px; height: 28px; border-radius: 50%; display: flex;
+                align-items: center; justify-content: center; font-size: 13px; font-weight: 600;
+                flex-shrink: 0; border: 2px solid var(--border); color: var(--muted); }
+  .phase-num.done   { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+  .phase-num.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+  .phase-title  { font-size: 15px; font-weight: 600; flex: 1; }
+  .phase-prog   { font-size: 12px; color: var(--muted); }
+  .phase-arrow  { color: var(--muted); font-size: 18px; transition: transform .2s; }
+  .phase-arrow.open { transform: rotate(180deg); }
+
+  .phase-body { border-top: 1px solid var(--border); display: none; }
+  .phase-body.open { display: block; }
+
+  /* ── Steps ── */
+  .step { padding: 18px 20px 18px 20px; border-bottom: 1px solid var(--border); }
+  .step:last-child { border-bottom: none; }
+  .step-row { display: flex; gap: 12px; align-items: flex-start; }
+  .step-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border);
+                display: flex; align-items: center; justify-content: center;
+                flex-shrink: 0; margin-top: 1px; font-size: 12px; }
+  .step-check.done { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+  .step-label { font-size: 14px; font-weight: 500; flex: 1; }
+  .step-label.done { color: var(--muted); text-decoration: line-through; }
+  .step-body  { margin-top: 12px; margin-left: 34px; }
+  .step-note  { font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+         border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;
+         border: none; transition: opacity .15s, transform .1s; }
+  .btn:active { transform: scale(.97); }
+  .btn-primary  { background: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-success  { background: var(--green); color: #fff; }
+  .btn-success:hover { opacity: .9; }
+  .btn-sm { padding: 5px 11px; font-size: 12px; border-radius: 6px; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Code block ── */
+  .code-block { background: #1e1e2e; color: #cdd6f4; font-family: var(--mono);
+                font-size: 12px; border-radius: 8px; padding: 12px 14px;
+                white-space: pre-wrap; word-break: break-all; margin: 8px 0;
+                position: relative; line-height: 1.6; max-height: 320px; overflow-y: auto; }
+  .copy-wrap { position: relative; }
+  .copy-btn  { position: absolute; top: 8px; right: 8px; padding: 3px 9px;
+               background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+               border-radius: 5px; color: #fff; font-size: 11px; cursor: pointer; }
+  .copy-btn:hover { background: rgba(255,255,255,.2); }
+
+  /* ── Alerts ── */
+  .alert { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 10px; }
+  .alert-info    { background: var(--accent-bg); color: #1d4ed8; }
+  .alert-success { background: var(--green-bg);  color: var(--green); }
+  .alert-warn    { background: var(--amber-bg);  color: var(--amber); }
+  .alert-error   { background: var(--red-bg);    color: var(--red); }
+
+  /* ── Form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+          letter-spacing: .04em; }
+  input[type=text], input[type=email], input[type=password] {
+    padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; background: var(--surface); color: var(--text); outline: none; width: 100%; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,113,227,.15); }
+
+  /* ── Upload zone ── */
+  .upload-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 20px;
+                 text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: var(--accent-bg); }
+  .upload-zone p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .upload-zone .icon { font-size: 28px; }
+  .upload-zone input { display: none; }
+  .file-chosen { font-size: 13px; color: var(--green); font-weight: 500; margin-top: 6px; }
+
+  /* ── Modal ── */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4);
+                    display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--surface); border-radius: 14px; padding: 28px;
+           width: 520px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+  .modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+
+  /* ── Spinner ── */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4);
+             border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Status bar ── */
+  .status-bar { position: fixed; bottom: 20px; right: 24px; background: #1e1e2e;
+                color: #cdd6f4; padding: 10px 16px; border-radius: 10px; font-size: 13px;
+                font-family: var(--mono); max-width: 400px; transform: translateY(80px);
+                transition: transform .3s; z-index: 50; }
+  .status-bar.show { transform: translateY(0); }
+
+  /* ── Link ── */
+  .ext-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent);
+              font-size: 13px; text-decoration: none; }
+  .ext-link:hover { text-decoration: underline; }
+
+  /* ── Warn banner ── */
+  .gitbash-warn { background: var(--amber-bg); border: 1px solid #fcd34d;
+                  border-radius: var(--radius); padding: 14px 18px; margin-bottom: 20px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>&#x1F4F1; iOS App Store Wizard</h1>
+      <p>Windows Edition</p>
+    </div>
+    <div class="app-list">
+      <div class="app-list-header">Your Apps</div>
+      <div id="appList"></div>
+      <button class="new-app-btn" onclick="showNewAppModal()">+ Add new app</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main" id="main">
+    <div class="welcome" id="welcome">
+      <div style="font-size:48px;margin-bottom:16px">&#x1F680;</div>
+      <h2>Ready to ship your iOS app?</h2>
+      <p>This wizard walks you through generating Apple certificates, setting up GitHub Actions secrets, and deploying your .ipa to the App Store — step by step.</p>
+      <button class="btn btn-primary" onclick="showNewAppModal()">+ Add your first app</button>
+    </div>
+    <div id="wizard" style="display:none"></div>
+  </main>
+</div>
+
+<!-- New app modal -->
+<div class="modal-backdrop" id="newAppModal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3>Add new app</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>App name</label>
+        <input type="text" id="f-appName" placeholder="My Awesome App">
+      </div>
+      <div class="form-group">
+        <label>Bundle ID</label>
+        <input type="text" id="f-bundleId" placeholder="com.yourname.myapp">
+      </div>
+      <div class="form-group full">
+        <label>Apple Developer email</label>
+        <input type="email" id="f-devEmail" placeholder="you@email.com">
+      </div>
+      <div class="form-group full">
+        <label>GitHub repo</label>
+        <input type="text" id="f-githubRepo" placeholder="username/repo-name">
+        <div style="font-size:12px;color:#6b7280;background:#f5f5f7;border-left:3px solid #d1d5db;border-radius:0 4px 4px 0;padding:6px 10px;margin-top:2px;line-height:1.5">
+          This repo holds the Actions workflow and release assets.
+          It can be a dedicated deploy repo — source code not required.
+        </div>
+      </div>
+    </div>
+    <div id="newAppError" class="alert alert-error" style="display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="createAppBtn" onclick="createApp()">Create app</button>
+    </div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar" id="statusBar"></div>
+
+<script>
+let currentAppId = null;
+
+// ── Bootstrap ───────────────────────────────────────────────────────────────
+
+async function init() {
+  const res  = await fetch('/api/status');
+  const data = await res.json();
+  if (!data.gitbash) {
+    document.getElementById('main').insertAdjacentHTML('afterbegin',
+      `<div class="gitbash-warn">
+        <strong>&#x26A0; Git Bash not found.</strong>
+        The OpenSSL steps require Git for Windows.
+        <a href="https://git-scm.com" target="_blank" class="ext-link" style="margin-left:8px">
+          Download Git for Windows &#x2197;
+        </a>
+      </div>`
+    );
+  }
+  await loadAppList();
+}
+
+// ── App list ─────────────────────────────────────────────────────────────────
+
+async function loadAppList() {
+  const res      = await fetch('/api/profiles');
+  const profiles = await res.json();
+  const el       = document.getElementById('appList');
+
+  if (profiles.length === 0) { el.innerHTML = ''; return; }
+
+  el.innerHTML = profiles.map(p => `
+    <div class="app-item ${p.appId === currentAppId ? 'active' : ''}"
+         onclick="selectApp('${p.appId}')">
+      <div class="app-item-icon">${p.appName.charAt(0).toUpperCase()}</div>
+      <div>
+        <div class="app-item-name">${esc(p.appName)}</div>
+        <div class="app-item-sub">${esc(p.bundleId)}</div>
+      </div>
+      <div class="app-item-badge">${p._done}/${p._total}</div>
+    </div>
+  `).join('');
+}
+
+async function selectApp(appId) {
+  currentAppId = appId;
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('wizard').style.display  = 'block';
+  await loadAppList();
+  await renderWizard(appId);
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+
+function showNewAppModal() {
+  document.getElementById('newAppModal').style.display = 'flex';
+  document.getElementById('newAppError').style.display = 'none';
+  document.getElementById('f-appName').focus();
+}
+function closeModal() {
+  document.getElementById('newAppModal').style.display = 'none';
+}
+
+async function createApp() {
+  const btn = document.getElementById('createAppBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Creating...';
+
+  const body = {
+    appName:    document.getElementById('f-appName').value,
+    bundleId:   document.getElementById('f-bundleId').value,
+    devEmail:   document.getElementById('f-devEmail').value,
+    githubRepo: document.getElementById('f-githubRepo').value,
+  };
+
+  const res  = await fetch('/api/profiles', { method: 'POST',
+    headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const data = await res.json();
+
+  btn.disabled = false;
+  btn.innerHTML = 'Create app';
+
+  if (!res.ok) {
+    const errEl = document.getElementById('newAppError');
+    errEl.textContent = data.error;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  closeModal();
+  await selectApp(data.appId);
+}
+
+// ── Wizard renderer ───────────────────────────────────────────────────────────
+
+async function renderWizard(appId) {
+  const res  = await fetch(`/api/profiles/${appId}`);
+  const p    = await res.json();
+  const pct  = Math.round((p._done / p._total) * 100);
+  const sc   = p.stepsComplete || {};
+  const wd   = p.workDir || '';
+
+  const phases = [
+    {
+      id: 'p1', title: 'Phase 1 — Generate Apple certificates',
+      steps: sc.p1_key && sc.p1_csr && sc.p1_cer && sc.p1_pem && sc.p1_p12,
+      doneCount: [sc.p1_key,sc.p1_csr,sc.p1_cer,sc.p1_pem,sc.p1_p12].filter(Boolean).length,
+      total: 5,
+      html: phase1HTML(p, sc),
+    },
+    {
+      id: 'p2', title: 'Phase 2 — App ID, provisioning profile & API key',
+      steps: sc.p2_appid && sc.p2_profile && sc.p2_apikey,
+      doneCount: [sc.p2_appid,sc.p2_profile,sc.p2_apikey].filter(Boolean).length,
+      total: 3,
+      html: phase2HTML(p, sc),
+    },
+    {
+      id: 'p3', title: 'Phase 3 — Encode files & set GitHub secrets',
+      steps: sc.p3_p12_secret && sc.p3_profile_secret && sc.p3_other_secrets,
+      doneCount: [sc.p3_p12_secret,sc.p3_profile_secret,sc.p3_other_secrets].filter(Boolean).length,
+      total: 3,
+      html: phase3HTML(p, sc),
+    },
+    {
+      id: 'p4', title: 'Phase 4 — GitHub Actions workflow',
+      steps: sc.p4_yaml,
+      doneCount: sc.p4_yaml ? 1 : 0,
+      total: 1,
+      html: phase4HTML(p, sc),
+    },
+    {
+      id: 'p5', title: 'Phase 5 — Create GitHub Release & upload .ipa',
+      steps: sc.p5_release,
+      doneCount: sc.p5_release ? 1 : 0,
+      total: 1,
+      html: phase5HTML(p, sc),
+    },
+  ];
+
+  // determine which phase to auto-open
+  const openPhase = phases.find(ph => !ph.steps) || phases[phases.length - 1];
+
+  document.getElementById('wizard').innerHTML = `
+    <div class="app-header">
+      <h2>${esc(p.appName)}</h2>
+      <p>${esc(p.bundleId)} &nbsp;&bull;&nbsp; ${esc(p.githubRepo)}</p>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="progress-label">${p._done} of ${p._total} steps complete &nbsp;(${pct}%)</div>
+      </div>
+    </div>
+    ${phases.map(ph => {
+      const numClass = ph.steps ? 'done' : (ph.doneCount > 0 ? 'active' : '');
+      const isOpen   = ph.id === openPhase.id;
+      return `
+        <div class="phase">
+          <div class="phase-header" onclick="togglePhase('${ph.id}')">
+            <div class="phase-num ${numClass}">${ph.steps ? '&#10003;' : ''}</div>
+            <div class="phase-title">${ph.title}</div>
+            <div class="phase-prog">${ph.doneCount}/${ph.total}</div>
+            <div class="phase-arrow ${isOpen ? 'open' : ''}" id="arrow-${ph.id}">&#x25BE;</div>
+          </div>
+          <div class="phase-body ${isOpen ? 'open' : ''}" id="body-${ph.id}">
+            ${ph.html}
+          </div>
+        </div>`;
+    }).join('')}
+    ${sc.p5_release ? `
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:20px 24px;margin-top:18px">
+      <div style="font-size:18px;font-weight:700;color:#15803d;margin-bottom:4px">&#127881; All steps complete — ready to submit!</div>
+      <div style="color:#166534;font-size:13px;margin-bottom:16px">Your certificate, provisioning profile, GitHub secrets, and workflow are all set up. Here's what to do next to get ${esc(p.appName)} live on the App Store.</div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+
+        <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px">
+          <div style="font-weight:600;margin-bottom:4px">Step 1 &mdash; Watch the GitHub Actions workflow run</div>
+          <div style="font-size:13px;color:#374151;line-height:1.6">Publishing the GitHub Release in Phase 5 triggers the workflow automatically. Open your repo's <strong>Actions</strong> tab to watch it run. It will sign your <code>.ipa</code> and upload it to App Store Connect.</div>
+          <a href="https://github.com/${esc(p.githubRepo)}/actions" target="_blank"
+             style="display:inline-block;margin-top:8px;font-size:12px;color:var(--accent)">Open Actions tab &#x2197;</a>
+        </div>
+
+        <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px">
+          <div style="font-weight:600;margin-bottom:4px">Step 2 &mdash; Find the build in App Store Connect</div>
+          <div style="font-size:13px;color:#374151;line-height:1.6">Once the workflow succeeds, log into <strong>App Store Connect</strong> and open your app. Under <em>TestFlight</em> &rarr; <em>iOS Builds</em> you'll see the new build appear (it may take a few minutes to process). Apple will also send a confirmation email.</div>
+          <a href="https://appstoreconnect.apple.com/apps" target="_blank"
+             style="display:inline-block;margin-top:8px;font-size:12px;color:var(--accent)">Open App Store Connect &#x2197;</a>
+        </div>
+
+        <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px">
+          <div style="font-weight:600;margin-bottom:4px">Step 3 &mdash; Complete your App Store listing (first release only)</div>
+          <div style="font-size:13px;color:#374151;line-height:1.6">If this is a brand-new app, go to the <em>App Store</em> tab in App Store Connect and fill in:
+            <ul style="margin:6px 0 0 16px;padding:0;display:flex;flex-direction:column;gap:3px">
+              <li>App name, subtitle, description &amp; keywords</li>
+              <li>Screenshots for each device size (at minimum iPhone 6.5&Prime; and 5.5&Prime;)</li>
+              <li>App icon (1024&times;1024 px, no alpha channel)</li>
+              <li>Support URL and privacy policy URL</li>
+              <li>Age rating, pricing &amp; availability</li>
+            </ul>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px">
+          <div style="font-weight:600;margin-bottom:4px">Step 4 &mdash; Select the build and submit for review</div>
+          <div style="font-size:13px;color:#374151;line-height:1.6">Under your app's App Store version, click <em>+ Build</em> and select the build uploaded in Step 2. Fill in any export compliance questions, then click <strong>Submit for Review</strong>. Apple's review typically takes <strong>24&ndash;48 hours</strong> for new apps.</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px">
+          <div style="font-weight:600;margin-bottom:4px">Step 5 &mdash; Release</div>
+          <div style="font-size:13px;color:#374151;line-height:1.6">After Apple approves the review you can choose to release immediately or on a specific date. Once released, ${esc(p.appName)} will be live on the App Store. For future updates, simply create a new GitHub Release with the updated <code>.ipa</code> — the workflow handles the rest automatically.</div>
+        </div>
+
+      </div>
+    </div>` : ''}
+  `;
+}
+
+function togglePhase(id) {
+  document.getElementById('body-' + id).classList.toggle('open');
+  document.getElementById('arrow-' + id).classList.toggle('open');
+}
+
+// ── Phase HTML builders ───────────────────────────────────────────────────────
+
+function phase1HTML(p, sc) {
+  const id = p.appId;
+  return `
+    ${stepHTML(sc.p1_key, 'Generate private key', `
+      <p class="step-note">Generates a 2048-bit RSA key using OpenSSL via Git Bash.</p>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="runStep('/${id}/p1/genkey', 'POST', null, '${id}')">
+          &#9658; Run
+        </button>
+      </div>
+    `)}
+    ${stepHTML(sc.p1_csr, 'Create Certificate Signing Request (CSR)', `
+      <p class="step-note">Generates the CSR signed with your name and Apple Developer email.</p>
+      <div style="margin-bottom:10px">
+        <label>Your full name (as it appears on your Apple Developer account)</label>
+        <input type="text" id="devName-${id}" placeholder="Chris Kesler"
+               value="${esc(p.devName||'')}" style="margin-top:4px">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="genCSR('${id}')">&#9658; Run</button>
+      </div>
+      <div id="csr-result-${id}"></div>
+    `)}
+    ${sc.p1_csr ? `
+    <div class="step" style="background:#f0fdf4">
+      <div class="step-row">
+        <div class="step-check done">&#10003;</div>
+        <div class="step-label">CSR generated — upload this file to Apple</div>
+      </div>
+      <div class="step-body">
+        <div style="font-family:monospace;font-size:12px;background:#fff;border:1px solid #d1fae5;border-radius:6px;padding:8px 12px;margin-bottom:8px;word-break:break-all;color:#065f46">
+          ${esc(p.workDir)}\\CertificateSigningRequest.certSigningRequest
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary btn-sm" onclick="copyText('${esc(p.workDir)}\\\\CertificateSigningRequest.certSigningRequest')">&#128203; Copy path</button>
+          <a class="btn btn-success btn-sm" href="/api/${id}/p1/download-csr">&#8659; Download CSR</a>
+        </div>
+      </div>
+    </div>` : ''}
+    ${stepHTML(sc.p1_cer, 'Upload CSR to Apple &amp; download the .cer', `
+      <p class="step-note">Log into the Apple Developer Portal and create a new certificate. When prompted to choose a certificate type, select <strong>Apple Distribution</strong> (listed under the <em>Software</em> section). Upload the CSR file, then download the resulting <code>.cer</code> and upload it here.</p>
+      <div class="btn-group">
+        <a class="btn btn-secondary btn-sm" href="https://developer.apple.com/account/resources/certificates/list" target="_blank">
+          Open Apple Portal &#x2197;
+        </a>
+        ${sc.p1_csr ? `<a class="btn btn-secondary btn-sm" href="/api/${id}/p1/download-csr">&#8659; Download CSR first</a>` : ''}
+      </div>
+      <div style="margin-top:12px">
+        ${uploadZone(id, 'cer', '.cer', `/${id}/p1/upload-cer`)}
+      </div>
+    `)}
+    ${stepHTML(sc.p1_pem, 'Convert .cer to .pem', `
+      <p class="step-note">Converts the Apple certificate to PEM format for bundling.</p>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="runStep('/${id}/p1/convertpem', 'POST', null, '${id}')">
+          &#9658; Run
+        </button>
+      </div>
+    `)}
+    ${stepHTML(sc.p1_p12, 'Bundle into .p12 file', `
+      <p class="step-note">Creates the final certificate bundle. Choose a strong password — you will add it
+      to GitHub as the <code>P12_PASSWORD</code> secret in Phase 3.</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+        <div>
+          <label>Password for .p12</label>
+          <input type="password" id="p12pass-${id}" placeholder="Strong password" style="margin-top:4px">
+        </div>
+        <div>
+          <label>Confirm password</label>
+          <input type="password" id="p12pass-confirm-${id}" placeholder="Re-enter password" style="margin-top:4px">
+        </div>
+        <div id="p12pass-match-${id}" style="font-size:12px;min-height:16px"></div>
+        <div>
+          <button class="btn btn-primary btn-sm" onclick="makeP12('${id}')">&#9658; Create .p12</button>
+        </div>
+      </div>
+    `)}
+  `;
+}
+
+function phase2HTML(p, sc) {
+  const id = p.appId;
+  return `
+    ${stepHTML(sc.p2_appid, 'Register App ID in Apple Developer Portal', `
+      <p class="step-note">Register your bundle ID <strong>${esc(p.bundleId)}</strong> as an App ID.</p>
+      <div class="btn-group">
+        <a class="btn btn-secondary btn-sm" href="https://developer.apple.com/account/resources/identifiers/list" target="_blank">
+          Open Apple Portal &#x2197;
+        </a>
+        <button class="btn btn-success btn-sm" onclick="markStep('${id}','p2_appid')">
+          &#10003; Mark as done
+        </button>
+      </div>
+    `)}
+    ${stepHTML(sc.p2_profile, 'Create &amp; upload provisioning profile', `
+      <p class="step-note">Create an App Store distribution profile linked to your App ID and certificate,
+      then upload the <code>.mobileprovision</code> file here.</p>
+      <div class="btn-group">
+        <a class="btn btn-secondary btn-sm" href="https://developer.apple.com/account/resources/profiles/list" target="_blank">
+          Open Apple Portal &#x2197;
+        </a>
+      </div>
+      <div style="margin-top:12px">
+        ${uploadZone(id, 'profile', '.mobileprovision', `/${id}/p2/upload-profile`)}
+      </div>
+    `)}
+    ${stepHTML(sc.p2_apikey, 'Generate App Store Connect API key', `
+      <p class="step-note">Create an API key with App Manager access. Enter the Issuer ID and Key ID
+      from the portal, then upload the <code>.p8</code> file.</p>
+      <div class="btn-group">
+        <a class="btn btn-secondary btn-sm" href="https://appstoreconnect.apple.com/access/integrations/api" target="_blank">
+          Open App Store Connect &#x2197;
+        </a>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+        <div>
+          <label>Issuer ID</label>
+          <input type="text" id="issuerId-${id}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="margin-top:4px">
+        </div>
+        <div>
+          <label>Key ID</label>
+          <input type="text" id="keyId-${id}" placeholder="XXXXXXXXXX" style="margin-top:4px">
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        ${uploadZone(id, 'p8', '.p8', `/${id}/p2/save-apikey`, true)}
+      </div>
+    `)}
+  `;
+}
+
+function phase3HTML(p, sc) {
+  const id = p.appId;
+  const ghUrl = `https://github.com/${p.githubRepo}/settings/secrets/actions`;
+  const keychainPw = `github_keychain_${id}`;
+  return `
+    ${stepHTML(sc.p3_p12_secret, 'Encode .p12 and add BUILD_CERTIFICATE_BASE64', `
+      <p class="step-note">Click the button to encode your .p12 as Base64, then copy it into GitHub as a secret.</p>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="encodeAndCopy('${id}','p12')">
+          &#128203; Copy Base64 to clipboard
+        </button>
+        <a class="btn btn-secondary btn-sm" href="${ghUrl}" target="_blank">Open GitHub Secrets &#x2197;</a>
+      </div>
+      <div class="alert alert-info" style="margin-top:10px">
+        Secret name: <strong>BUILD_CERTIFICATE_BASE64</strong>
+      </div>
+      <div class="btn-group" style="margin-top:10px">
+        <button class="btn btn-success btn-sm" onclick="markStep('${id}','p3_p12_secret')">
+          &#10003; Saved in GitHub
+        </button>
+      </div>
+    `)}
+    ${stepHTML(sc.p3_profile_secret, 'Encode provisioning profile and add BUILD_PROVISION_PROFILE_BASE64', `
+      <p class="step-note">Encodes your provisioning profile as Base64 for GitHub.</p>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="encodeAndCopy('${id}','profile')">
+          &#128203; Copy Base64 to clipboard
+        </button>
+        <a class="btn btn-secondary btn-sm" href="${ghUrl}" target="_blank">Open GitHub Secrets &#x2197;</a>
+      </div>
+      <div class="alert alert-info" style="margin-top:10px">
+        Secret name: <strong>BUILD_PROVISION_PROFILE_BASE64</strong>
+      </div>
+      <div class="btn-group" style="margin-top:10px">
+        <button class="btn btn-success btn-sm" onclick="markStep('${id}','p3_profile_secret')">
+          &#10003; Saved in GitHub
+        </button>
+      </div>
+    `)}
+    ${stepHTML(sc.p3_other_secrets, 'Add remaining secrets to GitHub', `
+      <p class="step-note">Add these 5 secrets in your GitHub repository settings.</p>
+      <a class="btn btn-secondary btn-sm" href="${ghUrl}" target="_blank" style="margin-bottom:12px;display:inline-flex">
+        Open GitHub Secrets &#x2197;
+      </a>
+      <div style="margin-top:4px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr style="background:#f5f5f7">
+            <th style="padding:7px 10px;text-align:left;border:1px solid var(--border);font-size:11px;text-transform:uppercase">Secret name</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid var(--border);font-size:11px;text-transform:uppercase">Value</th>
+            <th style="padding:7px 10px;border:1px solid var(--border)"></th>
+          </tr>
+          <tr>
+            <td style="padding:7px 10px;border:1px solid var(--border);font-family:monospace;font-size:12px">P12_PASSWORD</td>
+            <td style="padding:7px 10px;border:1px solid var(--border);color:var(--muted)">The password you set in Phase 1</td>
+            <td style="padding:7px 10px;border:1px solid var(--border)"></td>
+          </tr>
+          <tr>
+            <td style="padding:7px 10px;border:1px solid var(--border);font-family:monospace;font-size:12px">KEYCHAIN_PASSWORD</td>
+            <td style="padding:7px 10px;border:1px solid var(--border);font-family:monospace;font-size:12px">${keychainPw}</td>
+            <td style="padding:7px 10px;border:1px solid var(--border)">
+              <button class="btn btn-secondary btn-sm" onclick="copyText('${keychainPw}')">Copy</button>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:7px 10px;border:1px solid var(--border);font-family:monospace;font-size:12px">APPSTORE_ISSUER_ID</td>
+            <td style="padding:7px 10px;border:1px solid var(--border);font-family:monospace;font-size:12px">${esc(p.issuerId || '(from Phase 2)')}</td>
+            <td style="padding:7px 10px;border:1px solid var(--border)">
+              ${p.issuerId ? `<button class="btn btn-secondary btn-sm" onclick="copyText('${esc(p.issuerId)}')">Copy</button>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:7px 10px;border:1px solid var(--border);font-family:monospace;font-size:12px">APPSTORE_KEY_ID</td>
+            <td style="padding:7px 10px;border:1px solid var(--border);font-family:monospace;font-size:12px">${esc(p.keyId || '(from Phase 2)')}</td>
+            <td style="padding:7px 10px;border:1px solid var(--border)">
+              ${p.keyId ? `<button class="btn btn-secondary btn-sm" onclick="copyText('${esc(p.keyId)}')">Copy</button>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:7px 10px;border:1px solid var(--border);font-family:monospace;font-size:12px">APPSTORE_P8</td>
+            <td style="padding:7px 10px;border:1px solid var(--border);color:var(--muted)">Full contents of your .p8 file</td>
+            <td style="padding:7px 10px;border:1px solid var(--border)">
+              <button class="btn btn-secondary btn-sm" onclick="encodeAndCopy('${id}','p8')">Copy .p8</button>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="btn-group" style="margin-top:14px">
+        <button class="btn btn-success btn-sm" onclick="markAndRefresh('${id}','p3_other_secrets')">
+          &#10003; All secrets saved
+        </button>
+      </div>
+    `)}
+  `;
+}
+
+function phase4HTML(p, sc) {
+  const id = p.appId;
+  return `
+    ${stepHTML(sc.p4_yaml, 'Generate and download the GitHub Actions workflow', `
+      <p class="step-note">Generates a <code>ios-deploy.yml</code> that triggers when you publish a
+      GitHub Release. It downloads the <code>.ipa</code> from the release assets, re-signs it with
+      your certificate, and uploads it to App Store Connect automatically.</p>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="generateYAML('${id}')">
+          &#9658; Generate workflow
+        </button>
+        ${sc.p4_yaml ? `<a class="btn btn-success btn-sm" href="/api/${id}/p4/download-yaml">&#8659; Download ios-deploy.yml</a>` : ''}
+      </div>
+      <div id="yaml-preview-${id}" style="margin-top:12px"></div>
+    `)}
+    ${sc.p4_yaml ? `
+    <div class="step" style="background:#fffbeb;border-color:#fcd34d">
+      <div class="step-row">
+        <div class="step-check" style="color:#d97706;font-size:16px">&#9888;</div>
+        <div class="step-label" style="color:#92400e">You must commit this file to GitHub before the workflow can run</div>
+      </div>
+      <div class="step-body">
+        <p style="font-size:13px;color:#78350f;margin-bottom:10px">
+          Download the file above, then add it to your repo at exactly this path:
+        </p>
+        <div style="font-family:monospace;font-size:12px;background:#fff;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;margin-bottom:12px;color:#92400e">
+          .github/workflows/ios-deploy.yml
+        </div>
+        <a class="btn btn-success btn-sm" href="/api/${id}/p4/download-yaml" style="margin-bottom:12px">&#8659; Download ios-deploy.yml</a>
+        <p style="font-size:13px;color:#78350f;margin-bottom:8px">Run these commands in your repo folder (or use the GitHub web UI to upload the file):</p>
+        <div style="font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;border-radius:6px;padding:12px 14px;line-height:1.7;margin-bottom:10px">
+          mkdir -p .github/workflows<br>
+          <span style="color:#9cdcfe"># copy ios-deploy.yml into .github/workflows/</span><br>
+          git add .github/workflows/ios-deploy.yml<br>
+          git commit -m "Add iOS App Store deploy workflow"<br>
+          git push
+        </div>
+        <p style="font-size:12px;color:#92400e">
+          &#128161; Once pushed, any GitHub Release you publish on this repo will automatically trigger the workflow.
+        </p>
+      </div>
+    </div>` : ''}
+  `;
+}
+
+function phase5HTML(p, sc) {
+  const id = p.appId;
+  const releases = p.releases || [];
+  const releasesHtml = releases.length === 0 ? '' : `
+    <div style="margin-top:20px">
+      <p style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">
+        Release history
+      </p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${releases.map(r => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+            <span style="font-family:monospace;font-size:12px;background:var(--accent-bg);color:var(--accent);padding:2px 8px;border-radius:4px">${esc(r.tag)}</span>
+            <span style="font-size:13px;flex:1">${esc(r.ipaName)}</span>
+            <a href="${esc(r.url)}" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none">View &#x2197;</a>
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  return `
+    ${stepHTML(sc.p5_release, 'Upload .ipa to a GitHub Release', `
+      <p class="step-note">
+        Since <code>.ipa</code> files are too large for a repo commit (often 50–200 MB),
+        this step uploads them as GitHub Release assets. The workflow from Phase 4 downloads
+        the <code>.ipa</code> from the release at deploy time — nothing oversized ever touches git.
+      </p>
+      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px;margin-bottom:14px;font-size:13px;line-height:1.6">
+        <div style="font-weight:600;margin-bottom:8px">&#128273; Creating a GitHub Personal Access Token</div>
+        <div style="margin-bottom:10px">
+          Use a <strong>Fine-grained token</strong>
+          <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" style="color:var(--accent);margin-left:4px">Create one &#x2197;</a>
+        </div>
+        <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px">
+          <li><strong>Resource owner</strong> — select <em>your personal GitHub account</em> (not an org)</li>
+          <li><strong>Repository access</strong> — choose <em>Only select repositories</em>, then pick your repo (<code>${esc(p.githubRepo)}</code>)</li>
+          <li><strong>Permissions → Repository permissions → Contents</strong> — set to <em>Read and write</em></li>
+          <li>Click <em>Generate token</em>, copy it immediately, and paste it below</li>
+        </ol>
+        <div style="margin-top:10px;color:#92400e;font-size:12px">&#9888; If your repo is inside a GitHub <strong>organization</strong>, the org owner may need to approve the token before it works.</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label>GitHub Personal Access Token</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <input type="password" id="gh-token-${id}" placeholder="github_pat_..." style="flex:1">
+            <button class="btn btn-secondary btn-sm" onclick="validateToken('${id}')">Verify</button>
+          </div>
+          <div id="token-status-${id}" style="margin-top:6px;font-size:13px"></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label>Version tag</label>
+            <input type="text" id="rel-tag-${id}" placeholder="v1.0.0" style="margin-top:4px">
+          </div>
+          <div>
+            <label>Release title (optional)</label>
+            <input type="text" id="rel-title-${id}" placeholder="My App v1.0.0" style="margin-top:4px">
+          </div>
+          <div style="grid-column:1/-1">
+            <label>Release notes (optional)</label>
+            <input type="text" id="rel-notes-${id}" placeholder="What's new in this version..." style="margin-top:4px">
+          </div>
+        </div>
+
+        <div>
+          <label style="margin-bottom:6px;display:block">.ipa file</label>
+          <div class="upload-zone" id="zone-${id}-ipa"
+               onclick="document.getElementById('file-${id}-ipa').click()"
+               ondragover="event.preventDefault();this.classList.add('dragover')"
+               ondragleave="this.classList.remove('dragover')"
+               ondrop="handleIpaDrop(event,'${id}')">
+            <div class="icon">&#128230;</div>
+            <strong>.ipa file</strong>
+            <p>Click to browse or drag and drop here</p>
+            <div class="file-chosen" id="chosen-${id}-ipa"></div>
+            <input type="file" id="file-${id}-ipa" accept=".ipa"
+                   onchange="document.getElementById('chosen-${id}-ipa').textContent=this.files[0]?.name||''">
+          </div>
+        </div>
+
+        <div>
+          <button class="btn btn-primary" onclick="createRelease('${id}')">
+            &#128640; Create release &amp; upload .ipa
+          </button>
+        </div>
+        <div id="release-result-${id}"></div>
+      </div>
+      ${releasesHtml}
+    `)}
+    ${sc.p5_release ? releasesHtml : ''}
+  `;
+}
+
+// ── Step / upload helpers ─────────────────────────────────────────────────────
+
+function stepHTML(done, label, bodyHTML) {
+  return `
+    <div class="step">
+      <div class="step-row">
+        <div class="step-check ${done ? 'done' : ''}">${done ? '&#10003;' : ''}</div>
+        <div class="step-label ${done ? 'done' : ''}">${label}</div>
+      </div>
+      ${!done ? `<div class="step-body">${bodyHTML}</div>` : ''}
+    </div>`;
+}
+
+function uploadZone(appId, type, accept, endpoint, withFields) {
+  const zoneId = `zone-${appId}-${type}`;
+  const inputId = `file-${appId}-${type}`;
+  return `
+    <div class="upload-zone" id="${zoneId}"
+         onclick="document.getElementById('${inputId}').click()"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handleDrop(event,'${appId}','${type}','${endpoint}',${withFields||false})">
+      <div class="icon">&#128196;</div>
+      <strong>${accept} file</strong>
+      <p>Click to browse or drag and drop here</p>
+      <div class="file-chosen" id="chosen-${appId}-${type}"></div>
+      <input type="file" id="${inputId}" accept="${accept}"
+             onchange="uploadFile('${appId}','${type}','${endpoint}',${withFields||false})">
+    </div>`;
+}
+
+// ── API actions ───────────────────────────────────────────────────────────────
+
+async function runStep(endpoint, method, body, appId) {
+  showStatus('Running...');
+  const res  = await fetch('/api' + endpoint, {
+    method, headers: {'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json();
+  showStatus(data.ok ? 'Done! ' + (data.output || '') : 'Error: ' + (data.output || data.error || ''));
+  if (data.ok) await renderWizard(appId);
+}
+
+async function genCSR(appId) {
+  const devName = document.getElementById(`devName-${appId}`).value.trim();
+  if (!devName) { showStatus('Please enter your full name.'); return; }
+  showStatus('Generating CSR...');
+  const res  = await fetch(`/api/${appId}/p1/gencsr`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ devName })
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showStatus('CSR generated!');
+    await renderWizard(appId);
+  } else {
+    const el = document.getElementById(`csr-result-${appId}`);
+    if (el) el.innerHTML = `<div class="alert alert-error" style="margin-top:8px">&#x2717; ${esc(data.output || data.error)}</div>`;
+    showStatus('CSR failed — see error above.');
+  }
+}
+
+async function makeP12(appId) {
+  const password  = document.getElementById(`p12pass-${appId}`).value.trim();
+  const confirm   = document.getElementById(`p12pass-confirm-${appId}`).value.trim();
+  const matchEl   = document.getElementById(`p12pass-match-${appId}`);
+  if (!password) { showStatus('Please enter a password.'); return; }
+  if (!confirm)  { showStatus('Please confirm your password.'); return; }
+  if (password !== confirm) {
+    matchEl.innerHTML = '<span style="color:#dc2626">&#x2717; Passwords do not match</span>';
+    showStatus('Passwords do not match.');
+    return;
+  }
+  matchEl.innerHTML = '<span style="color:#16a34a">&#10003; Passwords match</span>';
+  await runStep(`/${appId}/p1/makep12`, 'POST', { password }, appId);
+}
+
+async function uploadFile(appId, type, endpoint, withFields) {
+  const input = document.getElementById(`file-${appId}-${type}`);
+  if (!input.files.length) return;
+  const file = input.files[0];
+  document.getElementById(`chosen-${appId}-${type}`).textContent = file.name;
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  if (withFields) {
+    const issuerId = document.getElementById(`issuerId-${appId}`)?.value.trim();
+    const keyId    = document.getElementById(`keyId-${appId}`)?.value.trim();
+    if (!issuerId || !keyId) { showStatus('Please enter Issuer ID and Key ID first.'); return; }
+    fd.append('issuerId', issuerId);
+    fd.append('keyId',    keyId);
+  }
+
+  showStatus('Uploading...');
+  const res  = await fetch('/api' + endpoint, { method: 'POST', body: fd });
+  const data = await res.json();
+  showStatus(data.ok ? 'Uploaded: ' + (data.filename || '') : 'Error: ' + (data.error || ''));
+  if (data.ok) await renderWizard(appId);
+}
+
+function handleDrop(e, appId, type, endpoint, withFields) {
+  e.preventDefault();
+  document.getElementById(`zone-${appId}-${type}`).classList.remove('dragover');
+  const input = document.getElementById(`file-${appId}-${type}`);
+  const dt    = new DataTransfer();
+  dt.items.add(e.dataTransfer.files[0]);
+  input.files = dt.files;
+  uploadFile(appId, type, endpoint, withFields);
+}
+
+async function encodeAndCopy(appId, type) {
+  showStatus('Encoding...');
+  const res  = await fetch(`/api/${appId}/p3/encode/${type}`);
+  const data = await res.json();
+  if (!data.ok) { showStatus('Error: ' + data.error); return; }
+  await navigator.clipboard.writeText(data.content);
+  showStatus('Copied to clipboard!');
+  if (type !== 'p8') await renderWizard(appId);
+}
+
+async function markStep(appId, step) {
+  await fetch(`/api/profiles/${appId}/mark`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ step })
+  });
+  await renderWizard(appId);
+  await loadAppList();
+}
+
+async function markAndRefresh(appId, step) {
+  await markStep(appId, step);
+}
+
+async function generateYAML(appId) {
+  showStatus('Generating workflow...');
+  const res  = await fetch(`/api/${appId}/p4/yaml`);
+  const data = await res.json();
+  if (!data.ok) { showStatus('Error: ' + data.error); return; }
+  showStatus('Workflow generated!');
+  await renderWizard(appId);
+  const preview = document.getElementById(`yaml-preview-${appId}`);
+  if (preview) {
+    preview.innerHTML = `
+      <div class="copy-wrap">
+        <div class="code-block">${esc(data.yaml)}</div>
+        <button class="copy-btn" onclick="copyText(${JSON.stringify(data.yaml)})">Copy</button>
+      </div>`;
+  }
+  await loadAppList();
+}
+
+// ── Phase 5 actions ───────────────────────────────────────────────────────────
+
+async function validateToken(appId) {
+  const token = document.getElementById(`gh-token-${appId}`).value.trim();
+  if (!token) { showStatus('Please enter a token.'); return; }
+  showStatus('Validating token...');
+  const res  = await fetch(`/api/${appId}/p5/validate-token`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ token })
+  });
+  const data = await res.json();
+  const el   = document.getElementById(`token-status-${appId}`);
+  if (data.ok) {
+    el.innerHTML = `<span style="color:var(--green)">&#10003; Connected to <strong>${esc(data.repo)}</strong>${data.private ? ' (private)' : ''}</span>`;
+    showStatus('Token verified!');
+  } else {
+    el.innerHTML = `<span style="color:var(--red)">&#x2717; ${esc(data.error)}</span>`;
+    showStatus('Token invalid.');
+  }
+}
+
+async function createRelease(appId) {
+  const token = document.getElementById(`gh-token-${appId}`).value.trim();
+  const tag   = document.getElementById(`rel-tag-${appId}`).value.trim();
+  const title = document.getElementById(`rel-title-${appId}`).value.trim();
+  const notes = document.getElementById(`rel-notes-${appId}`).value.trim();
+  const input = document.getElementById(`file-${appId}-ipa`);
+
+  if (!token) { showStatus('Please enter and verify your GitHub token.'); return; }
+  if (!tag)   { showStatus('Please enter a version tag (e.g. v1.0.0).'); return; }
+  if (!input.files.length) { showStatus('Please select your .ipa file.'); return; }
+
+  const resultEl = document.getElementById(`release-result-${appId}`);
+  resultEl.innerHTML = `<div class="alert alert-info">&#9203; Uploading .ipa to GitHub — this may take a minute for large files...</div>`;
+  showStatus('Creating release...');
+
+  const fd = new FormData();
+  fd.append('token', token);
+  fd.append('tag',   tag);
+  fd.append('title', title);
+  fd.append('notes', notes);
+  fd.append('file',  input.files[0]);
+
+  const res  = await fetch(`/api/${appId}/p5/create-release`, { method: 'POST', body: fd });
+  const data = await res.json();
+
+  if (data.ok) {
+    resultEl.innerHTML = `
+      <div class="alert alert-success">
+        &#10003; Release <strong>${esc(data.tag)}</strong> created and .ipa uploaded!<br>
+        <a href="${esc(data.releaseUrl)}" target="_blank" style="color:var(--green)">
+          View release on GitHub &#x2197;
+        </a>
+      </div>`;
+    showStatus('Release created successfully!');
+    await renderWizard(appId);
+    await loadAppList();
+  } else {
+    resultEl.innerHTML = `<div class="alert alert-error">&#x2717; ${esc(data.error)}</div>`;
+    showStatus('Release failed.');
+  }
+}
+
+function handleIpaDrop(e, appId) {
+  e.preventDefault();
+  document.getElementById(`zone-${appId}-ipa`).classList.remove('dragover');
+  const input = document.getElementById(`file-${appId}-ipa`);
+  const dt    = new DataTransfer();
+  dt.items.add(e.dataTransfer.files[0]);
+  input.files = dt.files;
+  document.getElementById(`chosen-${appId}-ipa`).textContent = input.files[0]?.name || '';
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function copyText(text) {
+  await navigator.clipboard.writeText(text);
+  showStatus('Copied to clipboard!');
+}
+
+let statusTimer;
+function showStatus(msg) {
+  const bar = document.getElementById('statusBar');
+  bar.textContent = msg;
+  bar.classList.add('show');
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => bar.classList.remove('show'), 3500);
+}
+
+init();
+</script>
+</body>
+</html>
