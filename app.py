@@ -378,6 +378,19 @@ jobs:
           security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
+          echo "--- Installed certificate ---"
+          security find-identity -v -p codesigning
+
+          echo "--- Certificate embedded in provisioning profile ---"
+          security cms -D -i "$PP_PATH" 2>/dev/null | python3 -c "
+import sys, plistlib, subprocess
+data = plistlib.loads(sys.stdin.buffer.read())
+for cert in data.get('DeveloperCertificates', []):
+    r = subprocess.run(['openssl','x509','-inform','DER','-subject','-noout'], input=bytes(cert), capture_output=True, text=True)
+    print(' ', r.stdout.strip())
+" 2>/dev/null || echo "  (unable to parse)"
+          echo "--- If the names above do not match, the upload will fail with certificate mismatch ---"
+
           mkdir -p ~/Library/MobileDevice/Provisioning\\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\\ Profiles
 
@@ -403,8 +416,15 @@ jobs:
           cp "$PP_PATH" "$APP_PATH/embedded.mobileprovision"
 
           # Get signing identity from keychain
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning
           IDENTITY=$(security find-identity -v -p codesigning | grep "Apple Distribution" | head -1 | awk -F'"' '{{print $2}}')
           echo "Signing with: $IDENTITY"
+          if [ -z "$IDENTITY" ]; then
+            echo "ERROR: No Apple Distribution certificate found in keychain."
+            echo "Check your BUILD_CERTIFICATE_BASE64 and P12_PASSWORD secrets."
+            exit 1
+          fi
 
           # Extract entitlements from the provisioning profile
           ENTITLEMENTS_PATH=$RUNNER_TEMP/entitlements.plist
@@ -415,6 +435,9 @@ jobs:
           find "$APP_PATH/Frameworks" -name "*.framework" -exec codesign --force --sign "$IDENTITY" {{}} \; 2>/dev/null || true
           find "$APP_PATH/PlugIns" -name "*.appex" -exec codesign --force --sign "$IDENTITY" {{}} \; 2>/dev/null || true
           codesign --force --sign "$IDENTITY" --entitlements "$ENTITLEMENTS_PATH" "$APP_PATH"
+
+          # Verify the signature before repacking
+          codesign --verify --deep --strict "$APP_PATH" && echo "Signature verified successfully" || {{ echo "ERROR: Signature verification failed!"; exit 1; }}
 
           # Repack as IPA
           cd unpacked && zip -qr ../../signed.ipa Payload

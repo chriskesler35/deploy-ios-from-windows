@@ -156,7 +156,26 @@ The `P12_PASSWORD` GitHub secret doesn't match the password used when creating t
 Make sure `ios-deploy.yml` is committed to the **root default branch** of your repo at `.github/workflows/ios-deploy.yml` (note the leading dot on `.github`).
 
 **Build not appearing in App Store Connect**  
-Processing can take up to 60 minutes. Apple will send a confirmation email when the build is ready. If it never arrives, check the GitHub Actions logs for upload errors.
+Processing can take up to 60 minutes. Apple will send a confirmation email when the build is ready. Check **App Store Connect → TestFlight → iOS Builds** (not the App Store tab — builds land in TestFlight first). If it never arrives, check the GitHub Actions logs for upload errors in the "Upload to App Store Connect" step. Apple also sends a separate email if a build is rejected during processing (e.g. invalid signature) — check both inbox and spam.
+
+**Workflow completes but nothing reaches App Store Connect**  
+The most common cause is a missing upload step. Open your `.github/workflows/ios-deploy.yml` and confirm the final step is:
+```yaml
+      - name: Upload to App Store Connect
+        uses: Apple-Actions/upload-testflight-build@v1
+        with:
+          app-path: release.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_P8 }}
+```
+If it's missing, regenerate the workflow from Phase 4 and recommit.
+
+**"Signing with:" is blank in the Actions log**  
+No Apple Distribution certificate was found in the keychain. The generated workflow now fails fast with a clear error if this happens. Common causes: `BUILD_CERTIFICATE_BASE64` secret is malformed (re-encode the `.p12` in Phase 3), or `P12_PASSWORD` doesn't match the password set in Phase 1.
+
+**"Invalid Code Signing — must be signed with the certificate in the provisioning profile"**  
+The certificate you signed with (your `.p12`) and the certificate embedded in your provisioning profile don't match — they must be a paired set. To fix: go to [developer.apple.com](https://developer.apple.com) → Profiles → open your App Store Distribution profile and check which certificate it uses. If it's not your current certificate, create a new profile selecting your Apple Distribution certificate from Phase 1, download it, re-encode it via Phase 3, and update the `BUILD_PROVISION_PROFILE_BASE64` GitHub secret. The generated workflow now prints both certificate names in the "Install certificate" step so you can spot the mismatch immediately in the Actions log.
 
 ---
 
