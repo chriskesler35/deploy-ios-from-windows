@@ -49,7 +49,7 @@ def run_openssl(cmd, cwd):
         return False, 'Git Bash not found. Install Git for Windows from https://git-scm.com'
     bash_cwd = str(cwd).replace('\\', '/')
     result = subprocess.run(
-        [GITBASH, '-c', f"cd '{bash_cwd}' && {cmd}"],
+        [GITBASH, '-c', f"cd '{bash_cwd}' && unset OPENSSL_CONF && {cmd}"],
         capture_output=True, text=True
     )
     output = (result.stdout + result.stderr).strip()
