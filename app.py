@@ -409,6 +409,11 @@ for cert in data.get('DeveloperCertificates', []):
           APP_PATH=$(find unpacked/Payload -maxdepth 1 -name "*.app" | head -1)
           echo "App path: $APP_PATH"
 
+          # Bump CFBundleVersion to the GitHub run number (must increase with every upload)
+          INFO_PLIST="$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{{{ github.run_number }}}}" "$INFO_PLIST"
+          echo "CFBundleVersion set to ${{{{ github.run_number }}}}"
+
           # Remove old signature
           rm -rf "$APP_PATH/_CodeSignature"
 
