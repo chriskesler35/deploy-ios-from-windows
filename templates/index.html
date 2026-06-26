@@ -398,8 +398,9 @@ async function renderWizard(appId) {
     },
   ];
 
-  // determine which phase to auto-open
+  // determine which phase to auto-open (first incomplete one)
   const openPhase = phases.find(ph => !ph.steps) || phases[phases.length - 1];
+  const prevOpen  = document.querySelector('.phase-body.open')?.id;
 
   document.getElementById('wizard').innerHTML = `
     <div class="app-header">
@@ -475,6 +476,14 @@ async function renderWizard(appId) {
       </div>
     </div>` : ''}
   `;
+
+  // Scroll to newly opened phase if it changed
+  const newOpen = `body-${openPhase.id}`;
+  if (prevOpen !== newOpen) {
+    setTimeout(() => {
+      document.getElementById(newOpen)?.closest('.phase')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
 }
 
 function togglePhase(id) {
@@ -729,27 +738,56 @@ function phase4HTML(p, sc) {
     <div class="step" style="background:#fffbeb;border-color:#fcd34d">
       <div class="step-row">
         <div class="step-check" style="color:#d97706;font-size:16px">&#9888;</div>
-        <div class="step-label" style="color:#92400e">You must commit this file to GitHub before the workflow can run</div>
+        <div class="step-label" style="color:#92400e;font-weight:600">Manual step required — commit this file to GitHub</div>
       </div>
       <div class="step-body">
-        <p style="font-size:13px;color:#78350f;margin-bottom:10px">
-          Download the file above, then add it to your repo at exactly this path:
+
+        <p style="font-size:13px;color:#78350f;margin-bottom:14px">
+          The workflow file must exist in your GitHub repo before it can run. This is a one-time setup step per app.
+          The file must be at <strong>exactly</strong> this path in your repo's default branch (<code>main</code>):
         </p>
-        <div style="font-family:monospace;font-size:12px;background:#fff;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;margin-bottom:12px;color:#92400e">
+        <div style="font-family:monospace;font-size:13px;background:#fff;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;margin-bottom:14px;color:#92400e;letter-spacing:.02em">
           .github/workflows/ios-deploy.yml
         </div>
-        <a class="btn btn-success btn-sm" href="/api/${id}/p4/download-yaml" style="margin-bottom:12px">&#8659; Download ios-deploy.yml</a>
-        <p style="font-size:13px;color:#78350f;margin-bottom:8px">Run these commands in your repo folder (or use the GitHub web UI to upload the file):</p>
-        <div style="font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;border-radius:6px;padding:12px 14px;line-height:1.7;margin-bottom:10px">
+
+        <a class="btn btn-success btn-sm" href="/api/${id}/p4/download-yaml" style="margin-bottom:18px;display:inline-flex">&#8659; Download ios-deploy.yml</a>
+
+        <div style="font-weight:600;font-size:13px;color:#78350f;margin-bottom:10px">Option A &mdash; GitHub web UI (easiest)</div>
+        <ol style="font-size:13px;color:#78350f;margin:0 0 16px 18px;padding:0;display:flex;flex-direction:column;gap:6px">
+          <li>Go to your GitHub repo: <a href="https://github.com/${esc(p.githubRepo)}" target="_blank" style="color:var(--accent)">github.com/${esc(p.githubRepo)} &#x2197;</a></li>
+          <li>Make sure the branch dropdown shows <strong>main</strong></li>
+          <li>Click <strong>Add file</strong> &rarr; <strong>Create new file</strong></li>
+          <li>In the filename box type: <code>.github/workflows/ios-deploy.yml</code> &nbsp;(GitHub creates the folders automatically)</li>
+          <li>Open the downloaded <code>ios-deploy.yml</code> in a text editor, select all, copy, and paste into the editor on GitHub</li>
+          <li>Click <strong>Commit changes</strong> &rarr; commit directly to <strong>main</strong></li>
+        </ol>
+
+        <div style="font-weight:600;font-size:13px;color:#78350f;margin-bottom:10px">Option B &mdash; Git command line</div>
+        <div style="font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;border-radius:6px;padding:12px 14px;line-height:1.9;margin-bottom:16px">
+          <span style="color:#6a9955"># Run these in your local repo folder</span><br>
           mkdir -p .github/workflows<br>
-          <span style="color:#9cdcfe"># copy ios-deploy.yml into .github/workflows/</span><br>
+          <span style="color:#6a9955"># Copy the downloaded ios-deploy.yml into .github/workflows/</span><br>
           git add .github/workflows/ios-deploy.yml<br>
           git commit -m "Add iOS App Store deploy workflow"<br>
           git push
         </div>
-        <p style="font-size:12px;color:#92400e">
-          &#128161; Once pushed, any GitHub Release you publish on this repo will automatically trigger the workflow.
-        </p>
+
+        <div style="font-weight:600;font-size:13px;color:#78350f;margin-bottom:8px">After committing — how to trigger the workflow</div>
+        <div style="font-size:13px;color:#78350f;line-height:1.7;margin-bottom:6px">
+          The workflow runs automatically whenever you publish a <strong>GitHub Release</strong> on this repo. It does <em>not</em> run on code pushes.
+          To trigger it:
+        </div>
+        <ol style="font-size:13px;color:#78350f;margin:0 0 12px 18px;padding:0;display:flex;flex-direction:column;gap:6px">
+          <li>Go to your repo on GitHub &rarr; click <strong>Releases</strong> (right sidebar) &rarr; <strong>Draft a new release</strong></li>
+          <li>Enter a version tag such as <code>v1.0.0</code> &mdash; each release must use a unique tag</li>
+          <li>Attach your <code>.ipa</code> file by dragging it onto the assets area</li>
+          <li>Click <strong>Publish release</strong></li>
+          <li>Go to the <strong>Actions</strong> tab in your repo to watch the workflow run</li>
+        </ol>
+        <div style="font-size:12px;color:#92400e;background:#fef9c3;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px">
+          &#128161; <strong>Common mistakes:</strong> workflow file committed to the wrong branch (must be <code>main</code>), path missing the leading dot (<code>.github</code> not <code>github</code>), or the release was edited after publishing instead of freshly published (editing does not re-trigger the workflow — create a new release instead).
+        </div>
+
       </div>
     </div>` : ''}
   `;
