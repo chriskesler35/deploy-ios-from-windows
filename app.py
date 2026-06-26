@@ -378,12 +378,12 @@ jobs:
           security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
-          echo "--- Installed certificate ---"
+          echo "== Installed certificate =="
           security find-identity -v -p codesigning
 
-          echo "--- Certificate embedded in provisioning profile ---"
+          echo "== Certificate embedded in provisioning profile =="
           security cms -D -i "$PP_PATH" 2>/dev/null | grep -A1 "CN=" | grep "CN=" | sed 's/.*CN=/  CN=/' || echo "  (unable to parse)"
-          echo "--- If the names above do not match, the upload will fail with certificate mismatch ---"
+          echo "== If the names above do not match, the upload will fail with certificate mismatch =="
 
           mkdir -p ~/Library/MobileDevice/Provisioning\\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\\ Profiles
