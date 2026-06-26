@@ -382,13 +382,7 @@ jobs:
           security find-identity -v -p codesigning
 
           echo "--- Certificate embedded in provisioning profile ---"
-          security cms -D -i "$PP_PATH" 2>/dev/null | python3 -c "
-import sys, plistlib, subprocess
-data = plistlib.loads(sys.stdin.buffer.read())
-for cert in data.get('DeveloperCertificates', []):
-    r = subprocess.run(['openssl','x509','-inform','DER','-subject','-noout'], input=bytes(cert), capture_output=True, text=True)
-    print(' ', r.stdout.strip())
-" 2>/dev/null || echo "  (unable to parse)"
+          security cms -D -i "$PP_PATH" 2>/dev/null | grep -A1 "CN=" | grep "CN=" | sed 's/.*CN=/  CN=/' || echo "  (unable to parse)"
           echo "--- If the names above do not match, the upload will fail with certificate mismatch ---"
 
           mkdir -p ~/Library/MobileDevice/Provisioning\\ Profiles
