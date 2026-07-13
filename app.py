@@ -403,8 +403,15 @@ jobs:
           APP_PATH=$(find unpacked/Payload -maxdepth 1 -name "*.app" | head -1)
           echo "App path: $APP_PATH"
 
-          # Bump CFBundleVersion to the GitHub run number (must increase with every upload)
+          # Set CFBundleShortVersionString from the release tag (strip leading v), e.g. v2.1.0 -> 2.1.0
+          # This MUST be higher than the previously approved version in App Store Connect
           INFO_PLIST="$APP_PATH/Info.plist"
+          TAG="${{{{ github.ref_name }}}}"
+          MARKETING_VERSION="${{TAG#v}}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$INFO_PLIST"
+          echo "CFBundleShortVersionString set to $MARKETING_VERSION"
+
+          # Bump CFBundleVersion to the GitHub run number (must increase with every upload)
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{{{ github.run_number }}}}" "$INFO_PLIST"
           echo "CFBundleVersion set to ${{{{ github.run_number }}}}"
 
