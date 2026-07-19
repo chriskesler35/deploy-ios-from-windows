@@ -174,6 +174,9 @@ If it's missing, regenerate the workflow from Phase 4 and recommit.
 **"Signing with:" is blank in the Actions log**  
 No Apple Distribution certificate was found in the keychain. The generated workflow now fails fast with a clear error if this happens. Common causes: `BUILD_CERTIFICATE_BASE64` secret is malformed (re-encode the `.p12` in Phase 3), or `P12_PASSWORD` doesn't match the password set in Phase 1.
 
+**"CFBundleShortVersionString must contain a higher version than the previously approved version"**  
+The app builder (Wix, Base44, etc.) generates the same version string every time, so Apple rejects subsequent uploads. The generated workflow now automatically patches `CFBundleShortVersionString` and `CFBundleVersion` in `Info.plist` using your GitHub Release tag before re-signing. Use a new tag like `v1.1.0` for each release — the workflow strips the leading `v` and sets the version to `1.1.0`. Tags must always increase (e.g. `v1.0.0` → `v1.1.0` → `v1.2.0`).
+
 **"Invalid Code Signing — must be signed with the certificate in the provisioning profile"**  
 The certificate you signed with (your `.p12`) and the certificate embedded in your provisioning profile don't match — they must be a paired set. To fix: go to [developer.apple.com](https://developer.apple.com) → Profiles → open your App Store Distribution profile and check which certificate it uses. If it's not your current certificate, create a new profile selecting your Apple Distribution certificate from Phase 1, download it, re-encode it via Phase 3, and update the `BUILD_PROVISION_PROFILE_BASE64` GitHub secret. The generated workflow now prints both certificate names in the "Install certificate" step so you can spot the mismatch immediately in the Actions log.
 

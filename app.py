@@ -403,15 +403,15 @@ jobs:
           APP_PATH=$(find unpacked/Payload -maxdepth 1 -name "*.app" | head -1)
           echo "App path: $APP_PATH"
 
-          # Set CFBundleShortVersionString from the release tag (strip leading v), e.g. v2.1.0 -> 2.1.0
-          # This MUST be higher than the previously approved version in App Store Connect
+          # Set version from release tag — CFBundleShortVersionString must be higher than approved version
           INFO_PLIST="$APP_PATH/Info.plist"
           TAG="${{{{ github.ref_name }}}}"
           MARKETING_VERSION="${{TAG#v}}"
+          plutil -convert xml1 "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$INFO_PLIST"
           echo "CFBundleShortVersionString set to $MARKETING_VERSION"
 
-          # Bump CFBundleVersion to the GitHub run number (must increase with every upload)
+          # CFBundleVersion uses run number — guaranteed to increase with every workflow run
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{{{ github.run_number }}}}" "$INFO_PLIST"
           echo "CFBundleVersion set to ${{{{ github.run_number }}}}"
 
